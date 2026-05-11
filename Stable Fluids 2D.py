@@ -40,18 +40,23 @@ def advection(field, vel_x, vel_y, dt):
     return advfield
 
 @njit
-def set_boundary(field, b):
+def set_boundary(x, y):
+    x[:, 0] = 0
+    x[:, -1] = 0
+    y[:, 0] = y[:, 1]
+    y[:, -1] = y[:, -2]
 
-    field[:, 0] = field[:, 1]
-    field[:, -1] = field[:, -2]
-    field[0, :] = field[1, :]
-    field[-1, :] = field[-2, :]
-    if b == 1:
-        field[:, 0] *= -1
-        field[:, -1] *= -1
-    if b == 2:
-        field[0, :] *= -1
-        field[-1, :] *= -1
+    y[0, :] = 0
+    y[-1, :] = 0
+    x[0, :] = x[1, :]
+    x[-1, :] = x[-2, :]
+
+@njit
+def set_boundary_density(density):
+    density[0, :] = density[1, :]
+    density[-1, :] = density[-2, :]
+    density[:, 0] = density[:, 1]
+    density[:, -1] = density[:, -2]
 
 @njit
 def projection(vel_x, vel_y, iterations=8):
@@ -69,10 +74,12 @@ def projection(vel_x, vel_y, iterations=8):
     return vel_x, vel_y
 
 def main():
+    global X_data
+    global Y_data
     pygame.init()
     dt = 0.1
     diff = 0.00001
-    w = 300
+    w = 250
     h = 200
     fw = w // 4
     fh = h // 4
@@ -86,31 +93,32 @@ def main():
 
     field[25, 25] = 0.0
 
-    for _ in range(10000):
+    for _ in range(1500):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
 
-        field[random.randint(21, 29), 25] += 30.0
-        vel_x[20:30, 20:30] = 5.0
+        field[random.randint(23, 27), 25] += 30.0
+        vel_x[20:30, 20:30] = 3.0
+
+        X_data.append(np.stack([field, vel_x, vel_y], axis=0))
 
         vel_x = diffuse(vel_x, diff, dt)
-        set_boundary(vel_x, 1)
         vel_y = diffuse(vel_y, diff, dt)
-        set_boundary(vel_y, 2)
+        set_boundary(vel_x, vel_y)
         vel_x, vel_y = projection(vel_x, vel_y)
+        set_boundary(vel_x, vel_y)
         old_vel_x = vel_x.copy()
         old_vel_y = vel_y.copy()
         vel_x = advection(old_vel_x, old_vel_x, old_vel_y, dt)
-        set_boundary(vel_x, 1)
         vel_y = advection(old_vel_y, old_vel_x, old_vel_y, dt)
-        set_boundary(vel_y, 2)
+        set_boundary(vel_x, vel_y)
         vel_x, vel_y = projection(vel_x, vel_y)
+        set_boundary(vel_x, vel_y)
         density = diffuse(field, diff, dt)
-        set_boundary(density, 0)
         density = advection(density, vel_x, vel_y, dt)
-        set_boundary(density, 0)
+        set_boundary_density(density)
         field = density
 
         screen.fill((0, 0, 0))
@@ -123,5 +131,13 @@ def main():
         pygame.display.flip()
         clock.tick(120)
 
+        Y_data.append(np.stack([field, vel_x, vel_y], axis=0))
+
+X_data = list()
+Y_data = list()
 if __name__ == "__main__":
     main()
+Y_data = np.array(Y_data)
+X_data = np.array(X_data)
+#np.save("X_data.npy", X_data)
+#np.save("Y_data.npy", Y_data)
