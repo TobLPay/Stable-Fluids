@@ -1,5 +1,3 @@
-#학교 제출용 2612 여*음 Stable Fluids 모듈(공개 사이트라서 이름 가렸습니당)
-
 import numpy as np
 import pygame
 import random
